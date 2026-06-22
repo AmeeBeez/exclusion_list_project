@@ -1,0 +1,41 @@
+name: Build Runbook PDF
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "docs/**"
+      - "assets/**"
+      - "schema/**"
+      - "scripts/**"
+      - ".github/workflows/build-pdf.yml"
+  workflow_dispatch:
+
+jobs:
+  build-pdf:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Install Pandoc and LaTeX
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y pandoc texlive-latex-base texlive-latex-recommended texlive-latex-extra
+
+      - name: Create output folder
+        run: mkdir -p outputs
+
+      - name: Build PDF from Markdown
+        run: |
+          pandoc docs/runbook.md \
+            -o outputs/runbook_generated.pdf \
+            --toc \
+            --number-sections
+
+      - name: Upload runbook artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: runbook-pdf
+          path: outputs/runbook_generated.pdf
