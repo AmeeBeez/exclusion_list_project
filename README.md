@@ -27,6 +27,8 @@ The project also includes a reusable runbook blueprint. The runbook documents ho
 
 - PostgreSQL
 - pgAdmin 4
+- Django
+- psycopg PostgreSQL driver
 - Python
 - PowerShell
 - CSV and Excel file processing
@@ -127,6 +129,8 @@ The goal is to create a repeatable workflow for collecting state provider exclus
 | `docs/` | Meeting notes and runbook source documentation |
 | `schema/` | SQL scripts for backup, schema replacement, and table creation |
 | `scripts/` | Python and PowerShell scripts for cleanup and import |
+| `exclusion_report/` | Django project settings and URL routing for the local report |
+| `reports/` | Django report views, database-query helpers, templates, and styling |
 | `data/raw/` | Original files downloaded/uploaded from state sources |
 | `data/processed/` | Cleaned CSV files ready for staging tables |
 | `data/summaries/` | Row counts, conversion summaries, and source confirmation files |
@@ -171,12 +175,196 @@ Example:
 stg_california_exclusions
 ```
 
+## Django Exclusion Report
+
+This repository now includes a local Django report for professionally displaying the exclusion-list data already imported into PostgreSQL. The report reads the existing `exclusion_project` schema and does not require changing the staging-table workflow.
+
+### Default PostgreSQL connection
+
+The Django settings use the local PostgreSQL defaults for this project:
+
+| Setting | Default |
+|---|---|
+| Database engine | PostgreSQL |
+| Database name | `exclusion_lists_db` |
+| User | `postgres` |
+| Password | blank by default |
+| Host | `localhost` |
+| Port | `5432` |
+| Schema search path | `exclusion_project,public` |
+
+If your local `postgres` user requires a password, set it before starting Django:
+
+```powershell
+$env:POSTGRES_PASSWORD="your_postgres_password"
+```
+
+Optional overrides are also supported:
+
+```powershell
+$env:POSTGRES_DB="exclusion_lists_db"
+$env:POSTGRES_USER="postgres"
+$env:POSTGRES_HOST="localhost"
+$env:POSTGRES_PORT="5432"
+$env:EXCLUSION_SCHEMA="exclusion_project"
+```
+
+### Process files before generating the report
+
+Run these steps from the repository root. The report reads PostgreSQL, so the CSV files must be cleaned, validated, and imported before the Django page can show records.
+
+1. Create a Python environment and install the project dependencies.
+
+Choose one setup option. After the environment is activated, the remaining commands use `python` and work the same way for standard Python, Anaconda, conda, or `uv`.
+
+Option A: standard Python
+
+```powershell
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
+python -m pip install --upgrade pip
+python -m pip install -r requirements.txt
+```
+
+Option B: Anaconda or conda
+
+Open Anaconda Prompt or a PowerShell terminal where `conda` is available, then run either:
+
+```powershell
+conda env create -f environment.yml
+conda activate exclusion_list_project
+```
+
+or, if you prefer a named environment and direct pip install:
+
+```powershell
+conda create -n exclusion-report python=3.12 -y
+conda activate exclusion-report
+python -m pip install -r requirements.txt
+```
+
+Option C: `uv`
+
+Use this option when regular Python or global `pip` is not available.
+
+```powershell
+uv venv .venv
+.\.venv\Scripts\Activate.ps1
+uv pip install -r requirements.txt
+```
+
+2. Put uploaded source CSV files in `assets/` or `data/raw/`. If the files are already cleaned and already match the staging schema, put them directly in `data/processed/` and skip to step 4.
+
+3. Clean uploaded CSV files into the standard staging schema.
+
+If the uploaded files are in `assets/`:
+
+```powershell
+python .\scripts\clean_to_schema.py --input-dir .\assets --output-dir .\data\processed
+```
+
+If the uploaded files are in `data/raw/`:
+
+```powershell
+python .\scripts\clean_to_schema.py --input-dir .\data\raw --output-dir .\data\processed
+```
+
+The cleaner writes PostgreSQL-ready files to `data/processed/` using names like:
+
+```text
+stg_alabama_exclusions_processed_schema.csv
+```
+
+4. Validate the processed CSV headers before importing them.
+
+```powershell
+python .\scripts\validate_csv_schema.py
+```
+
+5. Create or replace the PostgreSQL staging tables.
+
+Use pgAdmin Query Tool to run:
+
+```text
+schema/001_backup_and_replace_schema.sql
+```
+
+Or run the same SQL file from PowerShell with the local PostgreSQL defaults:
+
+```powershell
+$env:PGPASSWORD="your_postgres_password"
+& "C:\Program Files\PostgreSQL\18\bin\psql.exe" -h localhost -p 5432 -U postgres -d exclusion_lists_db -f .\schema\001_backup_and_replace_schema.sql
+```
+
+6. Import the processed CSV files into PostgreSQL.
+
+The import script defaults to `data/processed/` and imports files into the matching `exclusion_project.stg_<state>_exclusions` tables.
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\import_all_staging_csvs.ps1
+```
+
+If your processed files are in another folder, pass it explicitly:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\import_all_staging_csvs.ps1 -CsvFolder .\assets
+```
+
+7. Start the Django report after the database import is complete.
+
+```powershell
+$env:POSTGRES_PASSWORD="your_postgres_password"
+python manage.py runserver
+```
+
+Open the report at:
+
+```text
+http://127.0.0.1:8000/
+```
+
+The report includes:
+
+- summary totals for records, matched rows, source tables, and represented states
+- search across provider, business, NPI, license, provider number, reason, and notes
+- filters for state and action type
+- source-table coverage counts
+- top state coverage counts
+- CSV export at `/export.csv`
+
+### Data source behavior
+
+The report checks PostgreSQL tables in this order:
+
+1. If `exclusion_project.all_state_exclusions` exists and contains rows, the report uses it as the consolidated reporting source.
+2. If `all_state_exclusions` is empty or unavailable, the report unions the individual staging tables named `stg_<state>_exclusions`.
+3. Tables are skipped if they do not match the expected staging columns used by the cleaning and validation scripts.
+
+### Relational database direction
+
+The current staging-table design is good for loading inconsistent state files because every source can be preserved with minimal transformation. For a stronger relational reporting layer, keep the staging tables as audit-friendly raw imports and add normalized reporting tables such as:
+
+| Table | Purpose |
+|---|---|
+| `states` | One row per state or jurisdiction |
+| `sources` | Source website, file URL, access date, and source-file date |
+| `providers` | Provider or business identity fields such as names, NPI, license, and provider number |
+| `exclusion_actions` | Action type, effective date, authority, reason, reinstatement date, and data-quality status |
+
+Recommended path:
+
+1. Continue importing uploaded CSVs into `exclusion_project.stg_<state>_exclusions`.
+2. Validate the staging tables with row counts and schema checks.
+3. Add a consolidation SQL step that inserts clean, deduplicated rows into normalized reporting tables.
+4. Point Django models at the normalized tables when the structure is stable.
+5. Keep the current raw-SQL dashboard as the staging report until the normalized layer is ready.
+
 ## Important Scripts
 
 | Script | Purpose |
 |---|---|
-| `scripts/clean_schema.py` | Cleans raw or processed CSVs into the staging schema |
-| `scripts/import_all_staging_csvs.ps1` | Imports multiple processed CSVs into PostgreSQL using `psql` |
+| `scripts/clean_to_schema.py` | Cleans uploaded CSVs into the standard staging schema |
+| `scripts/import_all_staging_csvs.ps1` | Imports processed CSVs from `data/processed/` into PostgreSQL using `psql` |
 | `scripts/validate_csv_schema.py` | CI validation script that checks processed CSV headers |
 
 ## Important SQL

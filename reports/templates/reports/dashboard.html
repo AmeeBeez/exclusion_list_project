@@ -1,0 +1,180 @@
+{% load static %}
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Exclusion List Report</title>
+    <link rel="stylesheet" href="{% static 'reports/report.css' %}">
+</head>
+<body>
+    <main class="page-shell">
+        <section class="report-header">
+            <div>
+                <p class="eyebrow">PostgreSQL report</p>
+                <h1>Exclusion List Report</h1>
+                <p class="subhead">Schema: <strong>{{ schema|default:"exclusion_project" }}</strong></p>
+            </div>
+            <a class="button button-secondary" href="{% url 'reports:export_csv' %}{% if querystring %}?{{ querystring }}{% endif %}">Export CSV</a>
+        </section>
+
+        {% if not connected %}
+            <section class="notice notice-error">
+                <strong>Database connection unavailable.</strong>
+                <span>Confirm local PostgreSQL is running, the database exists, and the Django PostgreSQL settings match your local credentials.</span>
+                {% if database_error %}<code>{{ database_error }}</code>{% endif %}
+            </section>
+        {% endif %}
+
+        {% if skipped_tables %}
+            <section class="notice">
+                <strong>Some tables were skipped because their columns do not match the staging schema.</strong>
+                {% for table in skipped_tables %}
+                    <span>{{ table.table_name }}: missing {{ table.missing_columns|join:", " }}</span>
+                {% endfor %}
+            </section>
+        {% endif %}
+
+        <section class="summary-grid" aria-label="Report summary">
+            <div class="metric">
+                <span>Total records</span>
+                <strong>{{ summary.total_records }}</strong>
+            </div>
+            <div class="metric">
+                <span>Matched records</span>
+                <strong>{{ summary.filtered_records }}</strong>
+            </div>
+            <div class="metric">
+                <span>Source tables</span>
+                <strong>{{ summary.source_table_count }}</strong>
+            </div>
+            <div class="metric">
+                <span>States represented</span>
+                <strong>{{ summary.state_count }}</strong>
+            </div>
+        </section>
+
+        <form class="filters" method="get">
+            <label>
+                <span>Search</span>
+                <input type="search" name="q" value="{{ filters.q }}" placeholder="Provider, business, NPI, license, reason">
+            </label>
+            <label>
+                <span>State</span>
+                <select name="state">
+                    <option value="">All states</option>
+                    {% for state in states %}
+                        <option value="{{ state }}" {% if filters.state == state %}selected{% endif %}>{{ state }}</option>
+                    {% endfor %}
+                </select>
+            </label>
+            <label>
+                <span>Action type</span>
+                <select name="action_type">
+                    <option value="">All action types</option>
+                    {% for action_type in action_types %}
+                        <option value="{{ action_type }}" {% if filters.action_type == action_type %}selected{% endif %}>{{ action_type }}</option>
+                    {% endfor %}
+                </select>
+            </label>
+            <div class="filter-actions">
+                <button class="button" type="submit">Apply</button>
+                <a class="button button-secondary" href="{% url 'reports:dashboard' %}">Reset</a>
+            </div>
+        </form>
+
+        <section class="report-grid">
+            <div class="panel">
+                <div class="panel-heading">
+                    <h2>State Coverage</h2>
+                </div>
+                <div class="coverage-list">
+                    {% for state in state_summary %}
+                        <div class="coverage-row">
+                            <span>{{ state.source_state }}</span>
+                            <strong>{{ state.row_count }}</strong>
+                        </div>
+                    {% empty %}
+                        <p class="empty">No state records are available.</p>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <div class="panel">
+                <div class="panel-heading">
+                    <h2>Source Tables</h2>
+                </div>
+                <p class="source-note">{{ source_note }}</p>
+                <div class="coverage-list">
+                    {% for table in all_tables %}
+                        <div class="coverage-row">
+                            <span>{{ table.table_name }}</span>
+                            <strong>{{ table.row_count }}</strong>
+                        </div>
+                    {% empty %}
+                        <p class="empty">No staging tables were found in the reporting schema.</p>
+                    {% endfor %}
+                </div>
+            </div>
+        </section>
+
+        <section class="records-panel">
+            <div class="panel-heading">
+                <h2>Records</h2>
+                <span>Page {{ pagination.page }} of {{ pagination.page_count }}</span>
+            </div>
+            <div class="table-wrap">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>State</th>
+                            <th>Provider</th>
+                            <th>Business</th>
+                            <th>NPI</th>
+                            <th>License</th>
+                            <th>Action</th>
+                            <th>Effective Date</th>
+                            <th>Reinstatement</th>
+                            <th>Source</th>
+                            <th>Quality</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for record in records %}
+                            <tr>
+                                <td>{{ record.source_state }}</td>
+                                <td>
+                                    <strong>{{ record.provider_name }}</strong>
+                                    <span>{{ record.first_name }} {{ record.middle_name }} {{ record.last_name }}</span>
+                                </td>
+                                <td>{{ record.business_name }}</td>
+                                <td>{{ record.npi }}</td>
+                                <td>{{ record.license_number }}</td>
+                                <td>{{ record.action_type }}</td>
+                                <td>{{ record.action_effective_date }}</td>
+                                <td>{{ record.reinstatement_date }}</td>
+                                <td>{{ record.source_name }}</td>
+                                <td><span class="status-pill">{{ record.data_quality_status }}</span></td>
+                            </tr>
+                        {% empty %}
+                            <tr>
+                                <td colspan="10" class="empty-row">No records match the current filters.</td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            <nav class="pagination" aria-label="Record pages">
+                {% if pagination.has_previous %}
+                    <a class="button button-secondary" href="{{ page_url_prefix }}{{ pagination.previous_page }}">Previous</a>
+                {% else %}
+                    <span></span>
+                {% endif %}
+                {% if pagination.has_next %}
+                    <a class="button button-secondary" href="{{ page_url_prefix }}{{ pagination.next_page }}">Next</a>
+                {% endif %}
+            </nav>
+        </section>
+    </main>
+</body>
+</html>

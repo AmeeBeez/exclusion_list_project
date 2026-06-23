@@ -4,29 +4,25 @@
 ./CHANGELOG.md
 ./FILE_MANIFEST.txt
 ./README.md
-./assets/screenshots/pgadmin_tables_view.png
-./data/processed/delaware_sanctioned_providers_extracted.csv
-./data/processed/stg_california_exclusions_manual_escape_fixed.csv
-./data/processed/stg_california_exclusions_processed_schema.csv
-./data/processed/stg_delaware_exclusions_from_pdf_schema.csv
-./data/raw/Delaware Sanctioned Providers.pdf
-./data/raw/Exclusion_Lists_Project (2).xlsx
-./data/raw/Exclusions_List.csv
-./data/raw/Pasted text.txt
-./data/raw/StateExclusionSpreadsheet.xlsx
-./data/raw/Terminations for cause ef. 6.1.26.xlsx
-./data/raw/UPDATED.csv
-./data/raw/stg_arizona_exclusions.csv
-./data/raw/stg_arkansas_exclusions.csv
-./data/raw/suspended-ineligible-list-may-2026 (1).csv
-./data/summaries/delaware_pdf_to_csv_summary.csv
-./data/summaries/load_summary_check_stage.csv
-./data/summaries/load_summary_original.csv
-./data/summaries/source_match_confirmation.csv
-./docs/meeting_recap.docx
+./assets/screenshots/.gitkeep
+./data/processed/.gitkeep
+./data/raw/.gitkeep
+./data/summaries/.gitkeep
 ./docs/runbook.md
-./outputs/amalin_exclusion_database_blueprint.pdf
-./outputs/amalin_exclusion_database_runbook_blueprint_expanded.pdf
+./exclusion_report/__init__.py
+./exclusion_report/asgi.py
+./exclusion_report/settings.py
+./exclusion_report/urls.py
+./exclusion_report/wsgi.py
+./manage.py
+./outputs/.gitkeep
+./reports/__init__.py
+./reports/apps.py
+./reports/services.py
+./reports/static/reports/report.css
+./reports/templates/reports/dashboard.html
+./reports/urls.py
+./reports/views.py
 ./requirements.txt
 ./schema/001_backup_and_replace_schema.sql
 ./schema/README_schema_migration.txt

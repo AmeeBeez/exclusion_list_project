@@ -2,11 +2,11 @@
 Import all staging CSV files into PostgreSQL using psql from PowerShell.
 
 How to use:
-1. Put this script in the same folder as your processed CSV files, OR update $CsvFolder below.
+1. Put processed CSV files in data/processed, or pass -CsvFolder with another folder.
 2. Update $PsqlPath, $Database, $Username, $Host, $Port if needed.
 3. Run PowerShell as normal user.
-4. Execute:
-   powershell -ExecutionPolicy Bypass -File .\import_all_staging_csvs.ps1
+4. Execute from the repository root:
+   powershell -ExecutionPolicy Bypass -File .\scripts\import_all_staging_csvs.ps1
 
 Assumptions:
 - Database: exclusion_lists_db
@@ -15,6 +15,10 @@ Assumptions:
 - CSV files have headers matching the table columns.
 - If the CSV contains an id column, the script imports it and then resets the sequence.
 #>
+
+param(
+    [string]$CsvFolder = ""
+)
 
 $ErrorActionPreference = "Stop"
 
@@ -26,8 +30,15 @@ $HostName = "localhost"
 $Port = "5432"
 $Schema = "exclusion_project"
 
-# Use the folder where this script is located.
-$CsvFolder = Split-Path -Parent $MyInvocation.MyCommand.Path
+$ScriptFolder = Split-Path -Parent $MyInvocation.MyCommand.Path
+if ([string]::IsNullOrWhiteSpace($CsvFolder)) {
+    $RepoRoot = Split-Path -Parent $ScriptFolder
+    $CsvFolder = Join-Path $RepoRoot "data\processed"
+    if (-not (Test-Path $CsvFolder)) {
+        $CsvFolder = $ScriptFolder
+    }
+}
+$CsvFolder = (Resolve-Path $CsvFolder).Path
 # ----------------------------------------
 
 if (-not (Test-Path $PsqlPath)) {
@@ -37,16 +48,16 @@ if (-not (Test-Path $PsqlPath)) {
 }
 
 $Imports = @(
-    @{ File = "stg_alabama_exclusions_processed.csv"; Table = "stg_alabama_exclusions" },
-    @{ File = "stg_alaska_exclusions_processed.csv"; Table = "stg_alaska_exclusions" },
-    @{ File = "stg_arizona_exclusions_processed.csv"; Table = "stg_arizona_exclusions" },
-    @{ File = "stg_arkansas_exclusions_processed.csv"; Table = "stg_arkansas_exclusions" },
-    @{ File = "stg_california_exclusions_processed.csv"; Table = "stg_california_exclusions" },
-    @{ File = "stg_colorado_exclusions_processed.csv"; Table = "stg_colorado_exclusions" },
-    @{ File = "stg_connecticut_exclusions_processed.csv"; Table = "stg_connecticut_exclusions" },
-    @{ File = "stg_delaware_exclusions_processed.csv"; Table = "stg_delaware_exclusions" },
-    @{ File = "stg_district_of_columbia_exclusions_processed.csv"; Table = "stg_district_of_columbia_exclusions" },
-    @{ File = "stg_florida_exclusions_processed.csv"; Table = "stg_florida_exclusions" }
+    @{ Table = "stg_alabama_exclusions"; Files = @("stg_alabama_exclusions_processed_schema.csv", "stg_alabama_exclusions_from_pdf_schema.csv", "stg_alabama_exclusions_processed.csv") },
+    @{ Table = "stg_alaska_exclusions"; Files = @("stg_alaska_exclusions_processed_schema.csv", "stg_alaska_exclusions_from_pdf_schema.csv", "stg_alaska_exclusions_processed.csv") },
+    @{ Table = "stg_arizona_exclusions"; Files = @("stg_arizona_exclusions_processed_schema.csv", "stg_arizona_exclusions_from_pdf_schema.csv", "stg_arizona_exclusions_processed.csv") },
+    @{ Table = "stg_arkansas_exclusions"; Files = @("stg_arkansas_exclusions_processed_schema.csv", "stg_arkansas_exclusions_from_pdf_schema.csv", "stg_arkansas_exclusions_processed.csv") },
+    @{ Table = "stg_california_exclusions"; Files = @("stg_california_exclusions_processed_schema.csv", "stg_california_exclusions_manual_escape_fixed_schema.csv", "stg_california_exclusions_processed.csv", "stg_california_exclusions_manual_escape_fixed.csv") },
+    @{ Table = "stg_colorado_exclusions"; Files = @("stg_colorado_exclusions_processed_schema.csv", "stg_colorado_exclusions_from_pdf_schema.csv", "stg_colorado_exclusions_processed.csv") },
+    @{ Table = "stg_connecticut_exclusions"; Files = @("stg_connecticut_exclusions_processed_schema.csv", "stg_connecticut_exclusions_from_pdf_schema.csv", "stg_connecticut_exclusions_processed.csv") },
+    @{ Table = "stg_delaware_exclusions"; Files = @("stg_delaware_exclusions_processed_schema.csv", "stg_delaware_exclusions_from_pdf_schema.csv", "stg_delaware_exclusions_processed.csv") },
+    @{ Table = "stg_district_of_columbia_exclusions"; Files = @("stg_district_of_columbia_exclusions_processed_schema.csv", "stg_district_of_columbia_exclusions_from_pdf_schema.csv", "stg_district_of_columbia_exclusions_processed.csv") },
+    @{ Table = "stg_florida_exclusions"; Files = @("stg_florida_exclusions_processed_schema.csv", "stg_florida_exclusions_from_pdf_schema.csv", "stg_florida_exclusions_processed.csv") }
 )
 
 Write-Host "Starting CSV import..." -ForegroundColor Cyan
@@ -56,19 +67,29 @@ Write-Host "Folder:   $CsvFolder" -ForegroundColor Cyan
 Write-Host ""
 
 foreach ($item in $Imports) {
-    $CsvPath = Join-Path $CsvFolder $item.File
     $TableName = $item.Table
     $FullTable = "$Schema.$TableName"
+    $CsvPath = $null
+    $CsvFile = $null
 
-    if (-not (Test-Path $CsvPath)) {
-        Write-Host "SKIPPED: $($item.File) not found." -ForegroundColor Yellow
+    foreach ($candidate in $item.Files) {
+        $CandidatePath = Join-Path $CsvFolder $candidate
+        if (Test-Path $CandidatePath) {
+            $CsvPath = $CandidatePath
+            $CsvFile = $candidate
+            break
+        }
+    }
+
+    if (-not $CsvPath) {
+        Write-Host "SKIPPED: no CSV found for $TableName. Checked: $($item.Files -join ', ')." -ForegroundColor Yellow
         continue
     }
 
     # Convert backslashes to forward slashes for psql \copy compatibility.
     $PsqlCsvPath = $CsvPath.Replace("\", "/")
 
-    Write-Host "Importing $($item.File) -> $FullTable" -ForegroundColor Green
+    Write-Host "Importing $CsvFile -> $FullTable" -ForegroundColor Green
 
     $Sql = @"
 TRUNCATE TABLE $FullTable RESTART IDENTITY;
@@ -83,7 +104,7 @@ SELECT setval(pg_get_serial_sequence('$FullTable', 'id'), COALESCE((SELECT MAX(i
     & $PsqlPath -h $HostName -p $Port -U $Username -d $Database -f $TempSql
 
     if ($LASTEXITCODE -ne 0) {
-        Write-Host "FAILED: $($item.File)" -ForegroundColor Red
+        Write-Host "FAILED: $CsvFile" -ForegroundColor Red
         exit $LASTEXITCODE
     }
 

@@ -253,9 +253,16 @@ def should_process(path: Path) -> bool:
     return name.startswith("stg_") or name.startswith("all_states")
 
 
+def output_filename(path: Path) -> str:
+    stem = path.name
+    while stem.lower().endswith(".csv"):
+        stem = stem[:-4]
+    return f"{stem}_schema.csv"
+
+
 def process_file(path: Path, output_dir: Path) -> Dict[str, str]:
     headers, rows = read_csv(path)
-    output_path = output_dir / path.name.replace(".csv", "_schema.csv")
+    output_path = output_dir / output_filename(path)
     cleaned_rows = []
     seen = set()
     duplicates = 0
