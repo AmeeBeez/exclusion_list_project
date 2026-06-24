@@ -12,6 +12,9 @@ from .services import EXPECTED_COLUMNS, build_dashboard_context, fetch_export_re
 def _report_filters(request) -> dict[str, str]:
     return {
         "q": request.GET.get("q", "").strip(),
+        "name": request.GET.get("name", "").strip(),
+        "npi": request.GET.get("npi", "").strip(),
+        "provider_category": request.GET.get("provider_category", "").strip(),
         "state": request.GET.get("state", "").strip(),
         "action_type": request.GET.get("action_type", "").strip(),
     }

@@ -55,9 +55,22 @@
         </section>
 
         <form class="filters" method="get">
+            <label class="filter-name">
+                <span>Name search</span>
+                <input type="search" name="name" value="{{ filters.name }}" placeholder="Provider, company, DBA, first or last name">
+            </label>
             <label>
-                <span>Search</span>
-                <input type="search" name="q" value="{{ filters.q }}" placeholder="Provider, business, NPI, license, reason">
+                <span>NPI search</span>
+                <input type="search" name="npi" value="{{ filters.npi }}" placeholder="10-digit NPI">
+            </label>
+            <label>
+                <span>Provider category</span>
+                <select name="provider_category">
+                    <option value="">Companies and individuals</option>
+                    {% for category in provider_categories %}
+                        <option value="{{ category }}" {% if filters.provider_category == category %}selected{% endif %}>{{ category }}</option>
+                    {% endfor %}
+                </select>
             </label>
             <label>
                 <span>State</span>
@@ -84,6 +97,22 @@
         </form>
 
         <section class="report-grid">
+            <div class="panel">
+                <div class="panel-heading">
+                    <h2>Provider Categories</h2>
+                </div>
+                <div class="coverage-list">
+                    {% for category in provider_category_summary %}
+                        <div class="coverage-row">
+                            <span>{{ category.provider_category }}</span>
+                            <strong>{{ category.row_count }}</strong>
+                        </div>
+                    {% empty %}
+                        <p class="empty">No provider categories are available.</p>
+                    {% endfor %}
+                </div>
+            </div>
+
             <div class="panel">
                 <div class="panel-heading">
                     <h2>State Coverage</h2>
@@ -128,8 +157,8 @@
                     <thead>
                         <tr>
                             <th>State</th>
+                            <th>Category</th>
                             <th>Provider</th>
-                            <th>Business</th>
                             <th>NPI</th>
                             <th>License</th>
                             <th>Action</th>
@@ -143,14 +172,28 @@
                         {% for record in records %}
                             <tr>
                                 <td>{{ record.source_state }}</td>
+                                <td><span class="category-pill category-{{ record.provider_category|lower }}">{{ record.provider_category }}</span></td>
                                 <td>
                                     <strong>{{ record.provider_name }}</strong>
-                                    <span>{{ record.first_name }} {{ record.middle_name }} {{ record.last_name }}</span>
+                                    {% if record.business_name and record.business_name != "N/A" %}
+                                        <span>Company: {{ record.business_name }}</span>
+                                    {% endif %}
+                                    {% if record.first_name != "N/A" or record.last_name != "N/A" %}
+                                        <span>Individual: {{ record.first_name }} {{ record.middle_name }} {{ record.last_name }}</span>
+                                    {% endif %}
+                                    {% if record.aka != "N/A" or record.dba != "N/A" %}
+                                        <span>AKA/DBA: {{ record.aka }} {{ record.dba }}</span>
+                                    {% endif %}
                                 </td>
-                                <td>{{ record.business_name }}</td>
                                 <td>{{ record.npi }}</td>
-                                <td>{{ record.license_number }}</td>
-                                <td>{{ record.action_type }}</td>
+                                <td>
+                                    {{ record.license_number }}
+                                    {% if record.provider_number != "N/A" %}<span>Provider #: {{ record.provider_number }}</span>{% endif %}
+                                </td>
+                                <td>
+                                    {{ record.action_type }}
+                                    {% if record.provider_type != "N/A" %}<span>{{ record.provider_type }}</span>{% endif %}
+                                </td>
                                 <td>{{ record.action_effective_date }}</td>
                                 <td>{{ record.reinstatement_date }}</td>
                                 <td>{{ record.source_name }}</td>
@@ -158,7 +201,7 @@
                             </tr>
                         {% empty %}
                             <tr>
-                                <td colspan="10" class="empty-row">No records match the current filters.</td>
+                                <td colspan="10" class="empty-row">No healthcare providers match the current filters.</td>
                             </tr>
                         {% endfor %}
                     </tbody>

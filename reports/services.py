@@ -53,6 +53,18 @@ SEARCH_COLUMNS = [
     "notes",
 ]
 
+NAME_SEARCH_COLUMNS = [
+    "provider_name",
+    "business_name",
+    "first_name",
+    "middle_name",
+    "last_name",
+    "aka",
+    "dba",
+]
+
+PROVIDER_CATEGORY_OPTIONS = ["Company", "Individual", "Unclassified"]
+
 EXPORT_LIMIT = 100000
 
 
@@ -138,6 +150,38 @@ def _source_table_sql(table_names: list[str]) -> tuple[str, list[Any]]:
     return " UNION ALL ".join(selects), params
 
 
+def _has_value_sql(column: str) -> str:
+    column_sql = quote_identifier(column)
+    return f"NULLIF(NULLIF(BTRIM({column_sql}), ''), 'N/A') IS NOT NULL"
+
+
+def _provider_category_sql() -> str:
+    organization_markers = (
+        "llc|inc|corp|company|clinic|center|services|group|hospital|"
+        "facility|pharmacy|laboratory|labs|home health|agency|partners|"
+        "associates|practice|medical|healthcare|care center|nursing|rehab"
+    )
+    return f"""
+        CASE
+            WHEN record_type ILIKE ANY (ARRAY['%%company%%', '%%organization%%', '%%business%%', '%%entity%%', '%%facility%%'])
+                THEN 'Company'
+            WHEN record_type ILIKE ANY (ARRAY['%%individual%%', '%%person%%'])
+                THEN 'Individual'
+            WHEN {_has_value_sql("business_name")}
+                AND (
+                    NOT ({_has_value_sql("first_name")} OR {_has_value_sql("last_name")})
+                    OR LOWER(NULLIF(BTRIM(provider_name), '')) = LOWER(NULLIF(BTRIM(business_name), ''))
+                )
+                THEN 'Company'
+            WHEN provider_name ~* %s
+                THEN 'Company'
+            WHEN {_has_value_sql("first_name")} OR {_has_value_sql("last_name")}
+                THEN 'Individual'
+            ELSE 'Unclassified'
+        END
+    """
+
+
 def _where_clause(filters: dict[str, str]) -> tuple[str, list[Any]]:
     clauses: list[str] = []
     params: list[Any] = []
@@ -147,6 +191,27 @@ def _where_clause(filters: dict[str, str]) -> tuple[str, list[Any]]:
         search_value = f"%{query}%"
         clauses.append("(" + " OR ".join(f"{column} ILIKE %s" for column in SEARCH_COLUMNS) + ")")
         params.extend([search_value] * len(SEARCH_COLUMNS))
+
+    name = filters.get("name", "").strip()
+    if name:
+        search_value = f"%{name}%"
+        clauses.append("(" + " OR ".join(f"{quote_identifier(column)} ILIKE %s" for column in NAME_SEARCH_COLUMNS) + ")")
+        params.extend([search_value] * len(NAME_SEARCH_COLUMNS))
+
+    npi = filters.get("npi", "").strip()
+    if npi:
+        clauses.append("npi ILIKE %s")
+        params.append(f"%{npi}%")
+
+    provider_category = filters.get("provider_category", "").strip()
+    if provider_category in PROVIDER_CATEGORY_OPTIONS:
+        clauses.append(f"({_provider_category_sql()}) = %s")
+        params.extend([
+            "llc|inc|corp|company|clinic|center|services|group|hospital|"
+            "facility|pharmacy|laboratory|labs|home health|agency|partners|"
+            "associates|practice|medical|healthcare|care center|nursing|rehab",
+            provider_category,
+        ])
 
     state = filters.get("state", "").strip()
     if state:
@@ -214,12 +279,17 @@ def fetch_records(
     params.extend([limit, offset])
     return _run_query(
         f"""
-        SELECT *
+        SELECT *, {_provider_category_sql()} AS provider_category
         {from_sql}
         ORDER BY NULLIF(source_state, 'N/A'), NULLIF(provider_name, 'N/A'), id
         LIMIT %s OFFSET %s;
         """,
-        params,
+        [
+            "llc|inc|corp|company|clinic|center|services|group|hospital|"
+            "facility|pharmacy|laboratory|labs|home health|agency|partners|"
+            "associates|practice|medical|healthcare|care center|nursing|rehab",
+        ]
+        + params,
     )
 
 
@@ -259,6 +329,34 @@ def summarize_by_state(table_names: list[str]) -> list[dict[str, Any]]:
     )
 
 
+def summarize_by_provider_category(table_names: list[str]) -> list[dict[str, Any]]:
+    if not table_names:
+        return []
+    source_sql, params = _source_table_sql(table_names)
+    category_params = [
+        "llc|inc|corp|company|clinic|center|services|group|hospital|"
+        "facility|pharmacy|laboratory|labs|home health|agency|partners|"
+        "associates|practice|medical|healthcare|care center|nursing|rehab"
+    ]
+    return _run_query(
+        f"""
+        SELECT provider_category, COUNT(*)::bigint AS row_count
+        FROM (
+            SELECT {_provider_category_sql()} AS provider_category
+            FROM ({source_sql}) records
+        ) categorized
+        GROUP BY provider_category
+        ORDER BY
+            CASE provider_category
+                WHEN 'Company' THEN 1
+                WHEN 'Individual' THEN 2
+                ELSE 3
+            END;
+        """,
+        category_params + params,
+    )
+
+
 def build_dashboard_context(filters: dict[str, str], requested_page: int) -> dict[str, Any]:
     page_size = max(1, int(getattr(settings, "REPORT_PAGE_SIZE", 50)))
     all_tables, skipped_tables = discover_report_tables()
@@ -272,6 +370,7 @@ def build_dashboard_context(filters: dict[str, str], requested_page: int) -> dic
     records = fetch_records(active_tables, filters, page_size, (page - 1) * page_size)
     states = distinct_values(active_tables, "source_state")
     action_types = distinct_values(active_tables, "action_type")
+    provider_categories = PROVIDER_CATEGORY_OPTIONS
 
     return {
         "connected": True,
@@ -282,7 +381,9 @@ def build_dashboard_context(filters: dict[str, str], requested_page: int) -> dic
         "source_note": source_note,
         "states": states,
         "action_types": action_types,
+        "provider_categories": provider_categories,
         "state_summary": summarize_by_state(active_tables),
+        "provider_category_summary": summarize_by_provider_category(active_tables),
         "records": records,
         "filters": filters,
         "summary": {
