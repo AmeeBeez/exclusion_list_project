@@ -188,20 +188,17 @@ The Django settings use the local PostgreSQL defaults for this project:
 | Database engine | PostgreSQL |
 | Database name | `exclusion_lists_db` |
 | User | `postgres` |
-| Password | blank by default |
+| Password | prompted at server startup if not already set |
 | Host | `localhost` |
 | Port | `5432` |
 | Schema search path | `exclusion_project,public` |
 
-If your local `postgres` user requires a password, set it before starting Django:
+When you start the Django report, it prompts for the local `postgres` password. Press Enter if your local PostgreSQL user does not use a password.
+
+Optional overrides are also supported. Set `POSTGRES_PASSWORD` first if you want to skip the startup prompt:
 
 ```powershell
 $env:POSTGRES_PASSWORD="your_postgres_password"
-```
-
-Optional overrides are also supported:
-
-```powershell
 $env:POSTGRES_DB="exclusion_lists_db"
 $env:POSTGRES_USER="postgres"
 $env:POSTGRES_HOST="localhost"
@@ -310,10 +307,25 @@ If your processed files are in another folder, pass it explicitly:
 powershell -ExecutionPolicy Bypass -File .\scripts\import_all_staging_csvs.ps1 -CsvFolder .\assets
 ```
 
-7. Start the Django report after the database import is complete.
+7. Start the Django report after the database import is complete. Enter your PostgreSQL password when prompted, or press Enter for a blank password.
+
+Recommended launcher:
 
 ```powershell
-$env:POSTGRES_PASSWORD="your_postgres_password"
+powershell -ExecutionPolicy Bypass -File .\launch_site.ps1
+```
+
+The launcher loads optional settings from `.env`, prompts for the PostgreSQL password, uses `.venv` when it exists, opens the local report URL, and starts Django.
+
+To start the server without opening a browser:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\launch_site.ps1 -NoBrowser
+```
+
+Manual command:
+
+```powershell
 python manage.py runserver
 ```
 
