@@ -23,7 +23,33 @@ param(
 $ErrorActionPreference = "Stop"
 
 # ---------- EDIT THESE SETTINGS ----------
-$PsqlPath = "C:\Program Files\PostgreSQL\18\bin\psql.exe"
+$PsqlPath = $env:PSQL_PATH
+if ([string]::IsNullOrWhiteSpace($PsqlPath)) {
+    $PsqlCommand = Get-Command psql.exe -ErrorAction SilentlyContinue
+    if ($PsqlCommand) {
+        $PsqlPath = $PsqlCommand.Source
+    }
+}
+if ([string]::IsNullOrWhiteSpace($PsqlPath)) {
+    $CandidatePaths = @(
+        (Join-Path $env:LOCALAPPDATA "Programs\pgAdmin 4\runtime\psql.exe"),
+        (Join-Path $env:LOCALAPPDATA "Programs\pgAdmin 4\bin\psql.exe"),
+        (Join-Path $env:LOCALAPPDATA "Programs\PostgreSQL\bin\psql.exe"),
+        (Join-Path $env:ProgramFiles "PostgreSQL\bin\psql.exe"),
+        (Join-Path $env:ProgramFiles "pgAdmin 4\bin\psql.exe"),
+        (Join-Path $env:ProgramFiles "pgAdmin 4\runtime\psql.exe"),
+        (Join-Path ${env:ProgramFiles(x86)} "PostgreSQL\bin\psql.exe"),
+        (Join-Path ${env:ProgramFiles(x86)} "pgAdmin 4\bin\psql.exe"),
+        (Join-Path ${env:ProgramFiles(x86)} "pgAdmin 4\runtime\psql.exe")
+    ) | Where-Object { -not [string]::IsNullOrWhiteSpace($_) }
+
+    foreach ($candidate in $CandidatePaths) {
+        if (Test-Path $candidate) {
+            $PsqlPath = $candidate
+            break
+        }
+    }
+}
 $Database = "exclusion_lists_db"
 $Username = "postgres"
 $HostName = "localhost"
@@ -48,23 +74,98 @@ if (-not (Test-Path $PsqlPath)) {
 }
 
 $Imports = @(
-    @{ Table = "stg_alabama_exclusions"; Files = @("stg_alabama_exclusions_processed_schema.csv", "stg_alabama_exclusions_from_pdf_schema.csv", "stg_alabama_exclusions_processed.csv") },
-    @{ Table = "stg_alaska_exclusions"; Files = @("stg_alaska_exclusions_processed_schema.csv", "stg_alaska_exclusions_from_pdf_schema.csv", "stg_alaska_exclusions_processed.csv") },
-    @{ Table = "stg_arizona_exclusions"; Files = @("stg_arizona_exclusions_processed_schema.csv", "stg_arizona_exclusions_from_pdf_schema.csv", "stg_arizona_exclusions_processed.csv") },
-    @{ Table = "stg_arkansas_exclusions"; Files = @("stg_arkansas_exclusions_processed_schema.csv", "stg_arkansas_exclusions_from_pdf_schema.csv", "stg_arkansas_exclusions_processed.csv") },
-    @{ Table = "stg_california_exclusions"; Files = @("stg_california_exclusions_processed_schema.csv", "stg_california_exclusions_manual_escape_fixed_schema.csv", "stg_california_exclusions_processed.csv", "stg_california_exclusions_manual_escape_fixed.csv") },
-    @{ Table = "stg_colorado_exclusions"; Files = @("stg_colorado_exclusions_processed_schema.csv", "stg_colorado_exclusions_from_pdf_schema.csv", "stg_colorado_exclusions_processed.csv") },
-    @{ Table = "stg_connecticut_exclusions"; Files = @("stg_connecticut_exclusions_processed_schema.csv", "stg_connecticut_exclusions_from_pdf_schema.csv", "stg_connecticut_exclusions_processed.csv") },
-    @{ Table = "stg_delaware_exclusions"; Files = @("stg_delaware_exclusions_processed_schema.csv", "stg_delaware_exclusions_from_pdf_schema.csv", "stg_delaware_exclusions_processed.csv") },
-    @{ Table = "stg_district_of_columbia_exclusions"; Files = @("stg_district_of_columbia_exclusions_processed_schema.csv", "stg_district_of_columbia_exclusions_from_pdf_schema.csv", "stg_district_of_columbia_exclusions_processed.csv") },
-    @{ Table = "stg_florida_exclusions"; Files = @("stg_florida_exclusions_processed_schema.csv", "stg_florida_exclusions_from_pdf_schema.csv", "stg_florida_exclusions_processed.csv") }
+    @{ Table = "stg_alabama_exclusions"; Files = @("stg_alabama_exclusions.csv", "stg_alabama_exclusions_processed_schema.csv", "stg_alabama_exclusions_from_pdf_schema.csv", "stg_alabama_exclusions_processed.csv") },
+    @{ Table = "stg_alaska_exclusions"; Files = @("stg_alaska_exclusions.csv", "stg_alaska_exclusions_processed_schema.csv", "stg_alaska_exclusions_from_pdf_schema.csv", "stg_alaska_exclusions_processed.csv") },
+    @{ Table = "stg_arizona_exclusions"; Files = @("stg_arizona_exclusions.csv", "stg_arizona_exclusions_processed_schema.csv", "stg_arizona_exclusions_from_pdf_schema.csv", "stg_arizona_exclusions_processed.csv") },
+    @{ Table = "stg_arkansas_exclusions"; Files = @("stg_arkansas_exclusions.csv", "stg_arkansas_exclusions_processed_schema.csv", "stg_arkansas_exclusions_from_pdf_schema.csv", "stg_arkansas_exclusions_processed.csv") },
+    @{ Table = "stg_california_exclusions"; Files = @("stg_california_exclusions.csv", "stg_california_exclusions_processed_schema.csv", "stg_california_exclusions_manual_escape_fixed_schema.csv", "stg_california_exclusions_processed.csv", "stg_california_exclusions_manual_escape_fixed.csv") },
+    @{ Table = "stg_colorado_exclusions"; Files = @("stg_colorado_exclusions.csv", "stg_colorado_exclusions_processed_schema.csv", "stg_colorado_exclusions_from_pdf_schema.csv", "stg_colorado_exclusions_processed.csv") },
+    @{ Table = "stg_connecticut_exclusions"; Files = @("stg_connecticut_exclusions.csv", "stg_connecticut_exclusions_processed_schema.csv", "stg_connecticut_exclusions_from_pdf_schema.csv", "stg_connecticut_exclusions_processed.csv") },
+    @{ Table = "stg_delaware_exclusions"; Files = @("stg_delaware_exclusions.csv", "stg_delaware_exclusions_processed_schema.csv", "stg_delaware_exclusions_from_pdf_schema.csv", "stg_delaware_exclusions_processed.csv") },
+    @{ Table = "stg_district_of_columbia_exclusions"; Files = @("stg_district_of_columbia_exclusions.csv", "stg_district_of_columbia_exclusions_processed_schema.csv", "stg_district_of_columbia_exclusions_from_pdf_schema.csv", "stg_district_of_columbia_exclusions_processed.csv") },
+    @{ Table = "stg_florida_exclusions"; Files = @("stg_florida_exclusions.csv", "stg_florida_exclusions_processed_schema.csv", "stg_florida_exclusions_from_pdf_schema.csv", "stg_florida_exclusions_processed.csv") }
 )
+
+$OptionalColumns = @(
+    "first_name",
+    "middle_name",
+    "last_name",
+    "business_name",
+    "aka",
+    "dba",
+    "npi",
+    "provider_type",
+    "license_number",
+    "provider_number",
+    "action_type",
+    "action_effective_date",
+    "active_period",
+    "exclusion_authority",
+    "exclusion_reason",
+    "reinstatement_date",
+    "source_url",
+    "source_file_url",
+    "source_file_date",
+    "date_accessed",
+    "notes"
+)
+
+function Write-Utf8NoBom {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$Path,
+
+        [Parameter(Mandatory = $true)]
+        [string]$Value
+    )
+
+    $Utf8NoBom = New-Object System.Text.UTF8Encoding($false)
+    [System.IO.File]::WriteAllText($Path, $Value, $Utf8NoBom)
+}
+
+if ([string]::IsNullOrEmpty($env:PGPASSWORD)) {
+    $SecurePassword = Read-Host "PostgreSQL password for $Username" -AsSecureString
+    $PasswordPointer = [System.Runtime.InteropServices.Marshal]::SecureStringToBSTR($SecurePassword)
+    try {
+        $env:PGPASSWORD = [System.Runtime.InteropServices.Marshal]::PtrToStringBSTR($PasswordPointer)
+    }
+    finally {
+        [System.Runtime.InteropServices.Marshal]::ZeroFreeBSTR($PasswordPointer)
+    }
+}
 
 Write-Host "Starting CSV import..." -ForegroundColor Cyan
 Write-Host "Database: $Database" -ForegroundColor Cyan
 Write-Host "Schema:   $Schema" -ForegroundColor Cyan
 Write-Host "Folder:   $CsvFolder" -ForegroundColor Cyan
 Write-Host ""
+
+$TableNamesSql = ($Imports | ForEach-Object { "'$($_.Table)'" }) -join ", "
+$OptionalColumnsSql = ($OptionalColumns | ForEach-Object { "'$_'" }) -join ", "
+$SchemaCheckSql = @"
+SELECT COUNT(*)
+FROM information_schema.columns
+WHERE table_schema = '$Schema'
+  AND table_name IN ($TableNamesSql)
+  AND column_name IN ($OptionalColumnsSql)
+  AND is_nullable = 'NO';
+"@
+
+$SchemaCheck = & $PsqlPath -h $HostName -p $Port -U $Username -d $Database -v ON_ERROR_STOP=1 -t -A -c $SchemaCheckSql
+if ($LASTEXITCODE -ne 0) {
+    Write-Host "FAILED: could not check staging table nullability." -ForegroundColor Red
+    exit $LASTEXITCODE
+}
+
+$NotNullableOptionalColumns = (($SchemaCheck | Where-Object { $_.Trim() -match "^\d+$" } | Select-Object -Last 1).Trim())
+if ([int]$NotNullableOptionalColumns -gt 0) {
+    Write-Host "FAILED: staging tables still have old NOT NULL constraints on nullable source columns." -ForegroundColor Red
+    Write-Host "Run schema\002_apply_null_constraints.sql in pgAdmin first, then rerun this import." -ForegroundColor Yellow
+    Write-Host "Without that migration, blank CSV cells import as NULL and COPY fails after TRUNCATE." -ForegroundColor Yellow
+    exit 1
+}
+
+$ImportedTables = 0
 
 foreach ($item in $Imports) {
     $TableName = $item.Table
@@ -90,27 +191,57 @@ foreach ($item in $Imports) {
     $PsqlCsvPath = $CsvPath.Replace("\", "/")
 
     Write-Host "Importing $CsvFile -> $FullTable" -ForegroundColor Green
+    $ExpectedRows = (Import-Csv -LiteralPath $CsvPath).Count
+    if ($ExpectedRows -le 0) {
+        Write-Host "FAILED: $CsvFile has no data rows." -ForegroundColor Red
+        exit 1
+    }
+    Write-Host "Expected rows: $ExpectedRows" -ForegroundColor Cyan
 
     $Sql = @"
+BEGIN;
 TRUNCATE TABLE $FullTable RESTART IDENTITY;
-\copy $FullTable FROM '$PsqlCsvPath' WITH (FORMAT csv, HEADER true, DELIMITER ',', QUOTE '"', ENCODING 'UTF8');
+\copy $FullTable FROM '$PsqlCsvPath' WITH (FORMAT csv, HEADER true, DELIMITER ',', QUOTE '"', NULL '', ENCODING 'UTF8');
 SELECT '$TableName' AS table_name, COUNT(*) AS imported_rows FROM $FullTable;
+WITH actual AS (
+    SELECT COUNT(*)::integer AS rows FROM $FullTable
+)
+SELECT rows AS verified_rows
+FROM actual;
+DO `$verify`$
+DECLARE
+    actual_rows integer;
+BEGIN
+    SELECT COUNT(*)::integer INTO actual_rows FROM $FullTable;
+    IF actual_rows <> $ExpectedRows THEN
+        RAISE EXCEPTION 'Row count mismatch for ${TableName}: expected %, got %', $ExpectedRows, actual_rows;
+    END IF;
+END
+`$verify`$;
 SELECT setval(pg_get_serial_sequence('$FullTable', 'id'), COALESCE((SELECT MAX(id) FROM $FullTable), 1), true);
+COMMIT;
 "@
 
     $TempSql = Join-Path $env:TEMP "import_$TableName.sql"
-    Set-Content -Path $TempSql -Value $Sql -Encoding UTF8
+    Write-Utf8NoBom -Path $TempSql -Value $Sql
 
-    & $PsqlPath -h $HostName -p $Port -U $Username -d $Database -f $TempSql
+    & $PsqlPath -h $HostName -p $Port -U $Username -d $Database -v ON_ERROR_STOP=1 -f $TempSql
 
     if ($LASTEXITCODE -ne 0) {
         Write-Host "FAILED: $CsvFile" -ForegroundColor Red
+        Write-Host "The table import was wrapped in a transaction, so a failed COPY should not leave a partially imported table." -ForegroundColor Yellow
         exit $LASTEXITCODE
     }
 
     Remove-Item $TempSql -Force
+    $ImportedTables += 1
     Write-Host "Done: $TableName" -ForegroundColor Green
     Write-Host ""
+}
+
+if ($ImportedTables -eq 0) {
+    Write-Host "FAILED: no matching staging CSV files were imported from $CsvFolder." -ForegroundColor Red
+    exit 1
 }
 
 Write-Host "All available CSV imports completed." -ForegroundColor Cyan
@@ -131,6 +262,6 @@ ORDER BY table_name;
 "@
 
 $TempCountSql = Join-Path $env:TEMP "staging_row_counts.sql"
-Set-Content -Path $TempCountSql -Value $CountSql -Encoding UTF8
-& $PsqlPath -h $HostName -p $Port -U $Username -d $Database -f $TempCountSql
+Write-Utf8NoBom -Path $TempCountSql -Value $CountSql
+& $PsqlPath -h $HostName -p $Port -U $Username -d $Database -v ON_ERROR_STOP=1 -f $TempCountSql
 Remove-Item $TempCountSql -Force

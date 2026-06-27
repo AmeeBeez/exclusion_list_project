@@ -6,3 +6,6 @@ __pycache__/
 Thumbs.db
 *.log
 outputs/*.tmp
+data/processed/*
+data/raw/*
+.vscode/

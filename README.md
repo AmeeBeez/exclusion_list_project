@@ -81,7 +81,8 @@ The staging schema follows the updated approach:
 
 - `id` as an auto-incrementing primary key
 - all remaining columns as `VARCHAR`
-- all required columns set as `NOT NULL`
+- workflow/source fields required with `NOT NULL`
+- sparse source-provided fields nullable so blank CSV values import as database `NULL`
 - individual names split into `first_name`, `middle_name`, and `last_name`
 - organization names stored in `business_name`
 - source details preserved through `source_url`, `source_file_url`, `source_file_date`, `date_accessed`, and `notes`
@@ -266,10 +267,10 @@ If the uploaded files are in `data/raw/`:
 python .\scripts\clean_to_schema.py --input-dir .\data\raw --output-dir .\data\processed
 ```
 
-The cleaner writes PostgreSQL-ready files to `data/processed/` using names like:
+The cleaner detects the state from the file contents when possible and writes PostgreSQL-ready files to `data/processed/` using names like:
 
 ```text
-stg_alabama_exclusions_processed_schema.csv
+stg_alabama_exclusions.csv
 ```
 
 4. Validate the processed CSV headers before importing them.

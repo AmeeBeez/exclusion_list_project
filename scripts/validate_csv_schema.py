@@ -31,8 +31,9 @@ def main() -> int:
     if not DATA_DIR.exists():
         print("No data/processed folder found. Skipping CSV validation.")
         return 0
-    csv_files = sorted(DATA_DIR.glob("stg_*_schema.csv")) + sorted(DATA_DIR.glob("stg_*_from_pdf_schema.csv"))
-    # If no explicitly named schema files exist, validate all staging processed files.
+    patterns = ["stg_*_exclusions.csv", "stg_*_schema.csv", "stg_*_from_pdf_schema.csv"]
+    csv_files = sorted({path for pattern in patterns for path in DATA_DIR.glob(pattern)})
+    # If no explicitly named cleaned/schema files exist, validate all staging processed files.
     if not csv_files:
         csv_files = sorted(DATA_DIR.glob("stg_*_processed.csv"))
     if not csv_files:

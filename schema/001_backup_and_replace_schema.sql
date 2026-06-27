@@ -3,7 +3,8 @@
 -- 1) Back up every table currently inside exclusion_project.
 -- 2) Replace the project tables with the standard staging schema:
 --    - id BIGSERIAL PRIMARY KEY
---    - all non-id columns VARCHAR NOT NULL
+--    - required workflow/source columns VARCHAR NOT NULL
+--    - sparse source-provided attributes nullable
 --    - no varchar length limits
 --
 -- Run this in pgAdmin Query Tool while connected to exclusion_lists_db.
@@ -71,33 +72,33 @@ DECLARE
     ];
     col_defs TEXT := $cols$
         id BIGSERIAL PRIMARY KEY,
-        record_type VARCHAR NOT NULL DEFAULT 'N/A',
+        record_type VARCHAR NOT NULL DEFAULT 'provider_record',
         source_state VARCHAR NOT NULL DEFAULT 'N/A',
         source_state_abbr VARCHAR NOT NULL DEFAULT 'N/A',
         source_name VARCHAR NOT NULL DEFAULT 'N/A',
         provider_name VARCHAR NOT NULL DEFAULT 'N/A',
-        first_name VARCHAR NOT NULL DEFAULT 'N/A',
-        middle_name VARCHAR NOT NULL DEFAULT 'N/A',
-        last_name VARCHAR NOT NULL DEFAULT 'N/A',
-        business_name VARCHAR NOT NULL DEFAULT 'N/A',
-        aka VARCHAR NOT NULL DEFAULT 'N/A',
-        dba VARCHAR NOT NULL DEFAULT 'N/A',
-        npi VARCHAR NOT NULL DEFAULT 'N/A',
-        provider_type VARCHAR NOT NULL DEFAULT 'N/A',
-        license_number VARCHAR NOT NULL DEFAULT 'N/A',
-        provider_number VARCHAR NOT NULL DEFAULT 'N/A',
-        action_type VARCHAR NOT NULL DEFAULT 'N/A',
-        action_effective_date VARCHAR NOT NULL DEFAULT 'N/A',
-        active_period VARCHAR NOT NULL DEFAULT 'N/A',
-        exclusion_authority VARCHAR NOT NULL DEFAULT 'N/A',
-        exclusion_reason VARCHAR NOT NULL DEFAULT 'N/A',
-        reinstatement_date VARCHAR NOT NULL DEFAULT 'N/A',
-        source_url VARCHAR NOT NULL DEFAULT 'N/A',
-        source_file_url VARCHAR NOT NULL DEFAULT 'N/A',
-        source_file_date VARCHAR NOT NULL DEFAULT 'N/A',
-        date_accessed VARCHAR NOT NULL DEFAULT 'N/A',
-        data_quality_status VARCHAR NOT NULL DEFAULT 'N/A',
-        notes VARCHAR NOT NULL DEFAULT 'N/A'
+        first_name VARCHAR,
+        middle_name VARCHAR,
+        last_name VARCHAR,
+        business_name VARCHAR,
+        aka VARCHAR,
+        dba VARCHAR,
+        npi VARCHAR,
+        provider_type VARCHAR,
+        license_number VARCHAR,
+        provider_number VARCHAR,
+        action_type VARCHAR,
+        action_effective_date VARCHAR,
+        active_period VARCHAR,
+        exclusion_authority VARCHAR,
+        exclusion_reason VARCHAR,
+        reinstatement_date VARCHAR,
+        source_url VARCHAR,
+        source_file_url VARCHAR,
+        source_file_date VARCHAR,
+        date_accessed VARCHAR,
+        data_quality_status VARCHAR NOT NULL DEFAULT 'clean_ready_for_import',
+        notes VARCHAR
     $cols$;
 BEGIN
     FOREACH table_name IN ARRAY table_names LOOP
@@ -119,3 +120,8 @@ SELECT table_schema, table_name
 FROM information_schema.tables
 WHERE table_schema = 'exclusion_project'
 ORDER BY table_name;
+
+SELECT table_name, column_name, is_nullable, column_default
+FROM information_schema.columns
+WHERE table_schema = 'exclusion_project'
+ORDER BY table_name, ordinal_position;
