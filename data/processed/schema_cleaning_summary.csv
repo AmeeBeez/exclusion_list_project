@@ -1,0 +1,11 @@
+source_file,output_file,detected_state,raw_rows,output_rows,duplicates_removed,output_columns,status
+stg_alabama_exclusions.xlsx,stg_alabama_exclusions.csv,Alabama,2093,2093,0,28,processed
+stg_alaska_exclusions.csv,stg_alaska_exclusions.csv,Alaska,301,301,0,28,processed
+stg_arizona_exclusions.xlsx,stg_arizona_exclusions.csv,Arizona,708,708,0,28,processed
+stg_arkansas.exclusions.csv,stg_arkansas_exclusions.csv,Arkansas,2213,2213,0,28,processed
+stg_california_exclusions.csv,stg_california_exclusions.csv,California,23120,23120,0,28,processed
+stg_colorado_exclusions.xlsx,stg_colorado_exclusions.csv,Colorado,318,318,0,28,processed
+stg_connecticut_exclusions.xlsx,stg_connecticut_exclusions.csv,Connecticut,89,89,0,28,processed
+stg_delaware_sanctioned_providers_exclusions.csv,stg_delaware_exclusions.csv,Delaware,1685,1685,0,28,processed
+stg_district_of_columbia_exclusions.csv,stg_district_of_columbia_exclusions.csv,District of Columbia,93,93,0,28,processed
+stg_florida_exclusions.csv,stg_florida_exclusions.csv,Florida,83630,83630,0,28,processed
