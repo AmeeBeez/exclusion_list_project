@@ -308,7 +308,27 @@ If your processed files are in another folder, pass it explicitly:
 powershell -ExecutionPolicy Bypass -File .\scripts\import_all_staging_csvs.ps1 -CsvFolder .\assets
 ```
 
-7. Start the Django report after the database import is complete. Enter your PostgreSQL password when prompted, or press Enter for a blank password.
+7. Prepare the Django user interface.
+
+The report uses Django's built-in authentication and admin interface. Run migrations once, then create a Django user account for signing in.
+
+If your virtual environment is activated:
+
+```powershell
+python manage.py migrate
+python manage.py createsuperuser
+```
+
+If you are using the repository `.venv` without activating it:
+
+```powershell
+.\.venv\Scripts\python.exe manage.py migrate
+.\.venv\Scripts\python.exe manage.py createsuperuser
+```
+
+Use the superuser account to sign in at `/login/`. Staff users can also open the Django admin at `/admin/`.
+
+8. Start the Django report after the database import and Django setup are complete. Enter your PostgreSQL password when prompted, or press Enter for a blank password.
 
 Recommended launcher:
 
@@ -330,11 +350,27 @@ Manual command:
 python manage.py runserver
 ```
 
+Or, without activating `.venv`:
+
+```powershell
+.\.venv\Scripts\python.exe manage.py runserver
+```
+
 Open the report at:
 
 ```text
 http://127.0.0.1:8000/
 ```
+
+Useful Django UI routes:
+
+| Route | Purpose |
+|---|---|
+| `/login/` | Sign in with a Django user account |
+| `/logout/` | Sign out |
+| `/admin/` | Django admin interface for staff users |
+| `/` | Authenticated exclusion-list dashboard |
+| `/export.csv` | Authenticated CSV export for the current filters |
 
 The report includes:
 

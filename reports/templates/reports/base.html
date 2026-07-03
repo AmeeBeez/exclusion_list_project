@@ -1,0 +1,45 @@
+{% load static %}
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{% block title %}Exclusion List Report{% endblock %}</title>
+    <link rel="stylesheet" href="{% static 'reports/report.css' %}">
+</head>
+<body>
+    <header class="app-bar">
+        <a class="app-brand" href="{% url 'reports:dashboard' %}">
+            <span class="brand-mark">EL</span>
+            <span>
+                <strong>Exclusion List</strong>
+                <small>Django reporting UI</small>
+            </span>
+        </a>
+        <nav class="app-nav" aria-label="Application navigation">
+            {% if user.is_authenticated %}
+                <span class="user-chip">{{ user.get_username }}</span>
+                {% if user.is_staff %}
+                    <a class="button button-secondary" href="{% url 'admin:index' %}">Django Admin</a>
+                {% endif %}
+                <form method="post" action="{% url 'logout' %}">
+                    {% csrf_token %}
+                    <button class="button button-secondary" type="submit">Log out</button>
+                </form>
+            {% else %}
+                <a class="button" href="{% url 'login' %}">Log in</a>
+            {% endif %}
+        </nav>
+    </header>
+
+    {% if messages %}
+        <div class="message-stack">
+            {% for message in messages %}
+                <div class="notice">{{ message }}</div>
+            {% endfor %}
+        </div>
+    {% endif %}
+
+    {% block content %}{% endblock %}
+</body>
+</html>

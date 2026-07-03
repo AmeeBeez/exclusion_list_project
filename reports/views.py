@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import csv
 
+from django.contrib.auth.decorators import login_required
 from django.db import DatabaseError, OperationalError
 from django.http import HttpResponse
 from django.shortcuts import render
@@ -33,6 +34,7 @@ def _querystring_without_page(request) -> str:
     return params.urlencode()
 
 
+@login_required
 def dashboard(request):
     filters = _report_filters(request)
     querystring = _querystring_without_page(request)
@@ -67,6 +69,7 @@ def dashboard(request):
     return render(request, "reports/dashboard.html", context)
 
 
+@login_required
 def export_csv(request):
     filters = _report_filters(request)
     try:

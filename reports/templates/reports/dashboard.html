@@ -1,17 +1,12 @@
-{% load static %}
-<!doctype html>
-<html lang="en">
-<head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Exclusion List Report</title>
-    <link rel="stylesheet" href="{% static 'reports/report.css' %}">
-</head>
-<body>
+{% extends "reports/base.html" %}
+
+{% block title %}Exclusion List Report{% endblock %}
+
+{% block content %}
     <main class="page-shell">
         <section class="report-header">
             <div>
-                <p class="eyebrow">PostgreSQL report</p>
+                <p class="eyebrow">Django PostgreSQL report</p>
                 <h1>Exclusion List Report</h1>
                 <p class="subhead">Schema: <strong>{{ schema|default:"exclusion_project" }}</strong></p>
             </div>
@@ -219,5 +214,4 @@
             </nav>
         </section>
     </main>
-</body>
-</html>
+{% endblock %}
